@@ -1,31 +1,58 @@
 import React, { useState } from "react";
 import { FaChevronCircleLeft } from "react-icons/fa";
 import { IoMdPhotos } from "react-icons/io";
-import { AiOutlinePlus } from "react-icons/ai"; // Import the Plus icon
+import { AiOutlinePlus } from "react-icons/ai";
 import { useNavigate } from "react-router-dom";
-import { Link } from 'react-router-dom'; // Import Link
-
+import { Link } from "react-router-dom";
 
 function Post() {
-  const navigate = useNavigate(); // Initialize navigate function
+  const navigate = useNavigate();
+  const goBack = () => navigate(-1);
 
-  const goBack = () => {
-    navigate(-1); // Go back to the previous page
+  const [caption, setCaption] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState(null);
+  const [previewImages, setPreviewImages] = useState([]);
+  const [previewFiles, setPreviewFiles] = useState([]);
+
+  // Dropdown states
+  const [selectedRegulation, setSelectedRegulation] = useState("");
+  const [selectedBranch, setSelectedBranch] = useState("");
+  const [selectedSemester, setSelectedSemester] = useState("");
+  const [selectedSubject, setSelectedSubject] = useState("");
+  const [selectedMaterial, setSelectedMaterial] = useState("");
+
+  // Handle dropdown changes and reset dependent fields when a selection changes
+  const handleDropdownChange = (e, type) => {
+    const value = e.target.value;
+    if (type === "regulation") {
+      setSelectedRegulation(value);
+      setSelectedBranch("");
+      setSelectedSemester("");
+      setSelectedSubject("");
+      setSelectedMaterial("");
+    } else if (type === "branch") {
+      setSelectedBranch(value);
+      setSelectedSemester("");
+      setSelectedSubject("");
+      setSelectedMaterial("");
+    } else if (type === "semester") {
+      setSelectedSemester(value);
+      setSelectedSubject("");
+      setSelectedMaterial("");
+    } else if (type === "subject") {
+      setSelectedSubject(value);
+      setSelectedMaterial("");
+    }
   };
 
-  const [selectedYear, setSelectedYear] = useState("Year"); // State to store the selected dropdown value
-  const [caption, setCaption] = useState(""); // State for caption
-  const [selectedFiles, setSelectedFiles] = useState(null); // State for selected files
-  const [previewImages, setPreviewImages] = useState([]); // State for image previews
-  const [previewFiles, setPreviewFiles] = useState([]); // State for non-image file previews
-
-  const handleSelection = (value) => {
-    setSelectedYear(value); // Update the selected year and semester
+  // Material options change
+  const handleMaterialChange = (material) => {
+    setSelectedMaterial(material);
   };
 
   const handleFileChange = (e) => {
     const files = e.target.files;
-    setSelectedFiles(files); // Store selected files
+    setSelectedFiles(files);
 
     let imagePreviews = [];
     let filePreviews = [];
@@ -34,38 +61,31 @@ function Post() {
       if (file.type.startsWith("image/")) {
         const reader = new FileReader();
         reader.onloadend = () => {
-          imagePreviews.push(reader.result); // Add the image preview (Base64)
+          imagePreviews.push(reader.result);
           if (imagePreviews.length === files.length) {
-            setPreviewImages((prevImages) => [...prevImages, ...imagePreviews]); // Append the new images to existing previews
+            setPreviewImages((prevImages) => [...prevImages, ...imagePreviews]);
           }
         };
-        reader.readAsDataURL(file); // Read the file as a data URL (Base64)
+        reader.readAsDataURL(file);
       } else if (file.type === "application/pdf") {
-        filePreviews.push({ type: "pdf", name: file.name, icon: "📄" }); // PDF preview
-      } else if (file.type === "application/msword" || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-        filePreviews.push({ type: "doc", name: file.name, icon: "📝" }); // DOC/DOCX preview
+        filePreviews.push({ type: "pdf", name: file.name, icon: "📄" });
+      } else if (
+        file.type === "application/msword" ||
+        file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+      ) {
+        filePreviews.push({ type: "doc", name: file.name, icon: "📝" });
       } else {
-        filePreviews.push({ type: "file", name: file.name, icon: "📂" }); // Other file types
+        filePreviews.push({ type: "file", name: file.name, icon: "📂" });
       }
     });
 
-    setPreviewFiles((prevFiles) => [...prevFiles, ...filePreviews]); // Append new file previews to existing ones
+    setPreviewFiles((prevFiles) => [...prevFiles, ...filePreviews]);
   };
 
   const triggerFileInput = () => {
-    document.getElementById("file-input").click(); // Programmatically click the hidden file input
+    document.getElementById("file-input").click();
   };
 
-  // const handleUpload = () => {
-  //   if (caption.trim() === "") {
-  //     alert("Please write a caption before uploading!"); // Show a pop-up if caption is empty
-  //   } else {
-  //     // Proceed with upload logic (you can add your API call here)
-  //     alert("Post uploaded successfully!");
-  //   }
-  // };
-
-  // Function to remove selected file preview
   const handleRemovePreview = (index, type) => {
     if (type === "image") {
       setPreviewImages((prevImages) => prevImages.filter((_, i) => i !== index));
@@ -74,24 +94,45 @@ function Post() {
     }
   };
 
-  const handleUpload = () => {
+  // Updated handleUpload to send a POST request to your backend
+  const handleUpload = async () => {
     if (caption.trim() === "") {
-      alert("Please write a caption before uploading!"); // Show a pop-up if caption is empty
-    } else {
-      // Add the uploaded post to the posts array
-      const newPost = {
-        caption,
-        files: previewImages.concat(previewFiles),
-      };
-      setPosts((prevPosts) => [...prevPosts, newPost]); // Update the posts state in the parent component
-  
+      alert("Please write a caption before uploading!");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("caption", caption);
+    formData.append("regulation", selectedRegulation);
+    formData.append("branch", selectedBranch);
+    formData.append("semester", selectedSemester);
+    formData.append("subject", selectedSubject);
+    formData.append("material", selectedMaterial);
+
+    // Append each file
+    if (selectedFiles) {
+      for (let i = 0; i < selectedFiles.length; i++) {
+        formData.append("files", selectedFiles[i]);
+      }
+    }
+
+    try {
+      const response = await fetch("http://localhost:5000/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await response.json();
+      console.log("Upload Response:", data);
       alert("Post uploaded successfully!");
+    } catch (error) {
+      console.error("Error uploading files:", error);
+      alert("Error uploading files.");
     }
   };
-  
 
   return (
     <div>
+      {/* Navbar */}
       <div className="navbar bg-base-100">
         <div className="flex-none text-3xl cursor-pointer mr-8">
           <FaChevronCircleLeft onClick={goBack} />
@@ -104,93 +145,123 @@ function Post() {
         </div>
       </div>
 
-      <div className="border-2 border-gray-600 p-2 flex gap-4 items-center">
-        <div
-          tabIndex={0}
-          role="button"
-          className="btn btn-ghost btn-circle avatar"
-        >
+      {/* User & Inline Dropdown Section */}
+      <div className="border-2 border-gray-600 p-2 flex items-center gap-4">
+        <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar">
           <div className="w-12 rounded-full border-2 border-black">
-           <Link to="/user">
-            <img
-              alt="Tailwind CSS Navbar component"
-              src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp"
-            />
-           </Link>
+            <Link to="/user">
+              <img
+                alt="Avatar"
+                src="https://img.daisyui.com/images/stock/photo-1534528741775-53994a69daeb.webp"
+              />
+            </Link>
           </div>
         </div>
 
-        <div className="flex flex-col w-full">
-          <h1 className="text-xl font-bold">Sam</h1>
-          <div className="flex gap-4 items-center">
-            <h2 className="font-semibold">USEFUL FOR:</h2>
-            {/* Dropdown for Year */}
-            <div className="dropdown">
-              <label
-                tabIndex={0}
-                className="btn btn-outline btn-sm rounded px-4 hover:bg-gray-200"
-              >
-                {selectedYear}
-              </label>
-              <div
-                tabIndex={0}
-                className="dropdown-content menu shadow bg-base-100 rounded-box p-2 w-64"
-              >
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => handleSelection("First[1-1]")}
-                    className="btn btn-sm btn-outline hover:bg-blue-100"
-                  >
-                    First[1-1]
-                  </button>
-                  <button
-                    onClick={() => handleSelection("First[1-2]")}
-                    className="btn btn-sm btn-outline hover:bg-blue-100"
-                  >
-                    First[1-2]
-                  </button>
-                  <button
-                    onClick={() => handleSelection("Second[2-1]")}
-                    className="btn btn-sm btn-outline hover:bg-blue-100"
-                  >
-                    Second[2-1]
-                  </button>
-                  <button
-                    onClick={() => handleSelection("Second[2-2]")}
-                    className="btn btn-sm btn-outline hover:bg-blue-100"
-                  >
-                    Second[2-2]
-                  </button>
-                  <button
-                    onClick={() => handleSelection("Third[3-1]")}
-                    className="btn btn-sm btn-outline hover:bg-blue-100"
-                  >
-                    Third[3-1]
-                  </button>
-                  <button
-                    onClick={() => handleSelection("Third[3-2]")}
-                    className="btn btn-sm btn-outline hover:bg-blue-100"
-                  >
-                    Third[3-2]
-                  </button>
-                  <button
-                    onClick={() => handleSelection("Fourth[4-1]")}
-                    className="btn btn-sm btn-outline hover:bg-blue-100"
-                  >
-                    Fourth[4-1]
-                  </button>
-                  <button
-                    onClick={() => handleSelection("Fourth[4-2]")}
-                    className="btn btn-sm btn-outline hover:bg-blue-100"
-                  >
-                    Fourth[4-2]
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
+        {/* Inline Dropdowns */}
+        <div className="flex flex-wrap items-center gap-4">
+          {/* Regulation Dropdown - always visible */}
+          <select
+            onChange={(e) => handleDropdownChange(e, "regulation")}
+            value={selectedRegulation}
+            className="select select-bordered"
+          >
+            <option value="">Select Regulation</option>
+            <option value="AR20">AR20</option>
+            <option value="AR23">AR23</option>
+          </select>
+
+          {/* Branch Dropdown - appears to the right of Regulation */}
+          {selectedRegulation && (
+            <select
+              onChange={(e) => handleDropdownChange(e, "branch")}
+              value={selectedBranch}
+              className="select select-bordered"
+            >
+              <option value="">Select Branch</option>
+              <option value="CSE">CSE</option>
+              <option value="ECE">ECE</option>
+            </select>
+          )}
+
+          {/* Semester Dropdown - appears to the right of Branch */}
+          {selectedBranch && (
+            <select
+              onChange={(e) => handleDropdownChange(e, "semester")}
+              value={selectedSemester}
+              className="select select-bordered"
+            >
+              <option value="">Select Semester</option>
+              <option value="1-1">1-1</option>
+              <option value="1-2">1-2</option>
+              <option value="2-1">2-1</option>
+              <option value="2-2">2-2</option>
+              <option value="3-1">3-1</option>
+              <option value="3-2">3-2</option>
+              <option value="4-1">4-1</option>
+              <option value="4-2">4-2</option>
+            </select>
+          )}
+
+          {/* Subject Dropdown - appears to the right of Semester */}
+          {selectedSemester && (
+            <select
+              onChange={(e) => handleDropdownChange(e, "subject")}
+              value={selectedSubject}
+              className="select select-bordered"
+            >
+              <option value="">Select Subject</option>
+              <option value="Maths">Maths</option>
+              <option value="Physics">Physics</option>
+              <option value="Chemistry">Chemistry</option>
+              <option value="English">English</option>
+              {/* Add more subjects as needed */}
+            </select>
+          )}
         </div>
       </div>
+
+      {/* Material Options - appear below when subject is selected */}
+      {selectedSubject && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button
+            className={`btn ${selectedMaterial === "Question Bank" ? "btn-primary" : "btn-outline"}`}
+            onClick={() => handleMaterialChange("Question Bank")}
+          >
+            Question Bank
+          </button>
+          <button
+            className={`btn ${selectedMaterial === "Model Paper" ? "btn-primary" : "btn-outline"}`}
+            onClick={() => handleMaterialChange("Model Paper")}
+          >
+            Model Paper
+          </button>
+          <button
+            className={`btn ${selectedMaterial === "Supply Paper" ? "btn-primary" : "btn-outline"}`}
+            onClick={() => handleMaterialChange("Supply Paper")}
+          >
+            Supply Paper
+          </button>
+          <button
+            className={`btn ${selectedMaterial === "Mid Papers" ? "btn-primary" : "btn-outline"}`}
+            onClick={() => handleMaterialChange("Mid Papers")}
+          >
+            Mid Papers
+          </button>
+          <button
+            className={`btn ${selectedMaterial === "Sem Paper" ? "btn-primary" : "btn-outline"}`}
+            onClick={() => handleMaterialChange("Sem Paper")}
+          >
+            Sem Paper
+          </button>
+          <button
+            className={`btn ${selectedMaterial === "Others" ? "btn-primary" : "btn-outline"}`}
+            onClick={() => handleMaterialChange("Others")}
+          >
+            Others
+          </button>
+        </div>
+      )}
 
       {/* Caption Input */}
       <div className="mt-6 px-4">
@@ -203,7 +274,7 @@ function Post() {
         ></textarea>
       </div>
 
-      {/* Icon and Text */}
+      {/* File Selection */}
       <div
         className="file-selection mt-4 flex items-center gap-2 px-4 cursor-pointer"
         onClick={triggerFileInput}
@@ -222,7 +293,7 @@ function Post() {
         multiple
       />
 
-      {/* Display Image Previews with Remove Button */}
+      {/* Image Previews */}
       {previewImages.length > 0 && (
         <div className="mt-4 flex flex-wrap">
           {previewImages.map((preview, index) => (
@@ -240,16 +311,10 @@ function Post() {
               </button>
             </div>
           ))}
-          <div
-            className="inline-block relative mr-4 mb-4 cursor-pointer"
-            onClick={triggerFileInput}
-          >
-            <AiOutlinePlus className="text-3xl text-gray-500" />
-          </div>
         </div>
       )}
 
-      {/* Display File Previews with Remove Button */}
+      {/* File Previews */}
       {previewFiles.length > 0 && (
         <div className="mt-4 flex flex-wrap">
           {previewFiles.map((preview, index) => (
@@ -266,12 +331,6 @@ function Post() {
               </button>
             </div>
           ))}
-          <div
-            className="inline-block relative mr-4 mb-4 cursor-pointer"
-            onClick={triggerFileInput}
-          >
-            <AiOutlinePlus className="text-3xl text-gray-400" />
-          </div>
         </div>
       )}
 
